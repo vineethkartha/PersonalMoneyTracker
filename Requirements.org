@@ -1,0 +1,40 @@
+* Summary
+This is a personal finance tracker that is intended to help you keep track
+of the money spend.
+This is intended to be used along with the Money Manager app https://realbyteapps.com/
+Since the Money Manager app does not allow multi users, there is a pain point to solve when
+spending has to be tracked across different members of the family.
+This project is a solution to such workflows.
+The expectation is that the money manager app will be installed on one person's phone.
+This user will be refered to as the admin and the others will send updates of their spendings/incomes to a telegram bot.
+The telegram bot fills in the import.xls
+The admin has to periodically import the import.xls to the money manager app.
+https://help.realbyteapps.com/hc/en-us/articles/360043223253-How-to-import-bulk-data-by-Excel-file
+
+* What to track
+Expenses made from credit cards
+Expenses made from debit cards
+Expenses made from UPI
+Expenses with hard cash
+* What is not tracked
+Monthly recurring expenses
+Investements made
+
+* Workflow
+The steps which have (M) means manual step and user action is needed
+the steps with (A) means the sytem does it automaitcally
+1. (M) Send the message to the telegram bot
+2. (A) telegram bot populates the excel sheet
+3. (M) download excel sheet to phone
+4. (A) import to money manager
+
+
+* Check points
+ 1. [X] Investigate and see how the import.xls works with the Money Manager app
+    This was to explore if partial data can be added in import.xlx and if that can be added to an already running session of money manager
+ 2. [X] Create a telegram bot 
+ 3. [X] Create a python script that listens to the bot and parses the information
+ 4. [ ] Make the python script fill in the import.xlx
+ 5. [ ] implement some NLP approach to parse data
+
+
