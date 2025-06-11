@@ -16,5 +16,6 @@ class ExcelWriter:
             df = pd.read_excel(self.filename)
             df = pd.concat([df, pd.DataFrame([transaction])], ignore_index=True)
             df.to_excel(self.filename, index=False)
+            print("Entry made to excel")
         except Exception as e:
             print(f"Error writing to Excel: {e}")
