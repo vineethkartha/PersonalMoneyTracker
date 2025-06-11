@@ -19,7 +19,7 @@ class UPIParser(BaseParser):
 
             amount = float(amount_match.group(1))
             to = to_match.group(1).split('\n')[0].strip()
-            date = datetime.strptime(date_match.group(1), '%d/%m/%y').strftime('%Y-%m-%d')
+            date = datetime.strptime(date_match.group(1), '%d/%m/%y').strftime('%d/%m/%Y')
             account_end = account_match.group(1)
 
             if account_end == '5000':
