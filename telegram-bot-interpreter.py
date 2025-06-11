@@ -16,7 +16,7 @@ if not TELEGRAM_TOKEN:
 
 # Initialize parser, Excel writer, and log file
 parser = TransactionParser()
-excel_writer = ExcelWriter('data/import.xlsx')
+excel_writer = ExcelWriter('data/import.tsv')
 
 
 def start(update, context):
