@@ -7,6 +7,11 @@ import os
 from parser_module import TransactionParser
 from excel_writer import ExcelWriter
 from logger import log_transaction
+import re
+
+# this is to fix the issue Error: Can't parse entities: can't find end of\ the entity starting at byte offset 161
+def escape_markdown(text):
+    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
 
 load_dotenv()
 
@@ -30,13 +35,12 @@ def handle_message(update, context):
         if parsed_data:
             excel_writer.write_transaction(parsed_data)
             log_transaction(user_message, str(parsed_data))
-
             reply = (
                 f"✅ *Transaction Parsed*\n"
-                f"💰 *Amount*: ₹{parsed_data['Amount']}\n"
+                f"💰 *Amount*: ₹{escape_markdown(str(parsed_data['Amount']))}\n"
                 f"🏦 *Account*: {parsed_data['Account']}\n"
-                f"📂 *Category*: {parsed_data['Category']}\n"
-                f"🗂️ *Subcategory*: {parsed_data['Subcategory']}\n"
+                f"📂 *Category*: {escape_markdown(parsed_data['Category'])}\n"
+                f"🗂️ *Subcategory*: {escape_markdown(parsed_data['Subcategory'])}\n"
                 f"📝 *Note*: {parsed_data['Note']}\n"
                 f"💵 *Type*: {parsed_data['Income/Expense']}\n"
                 f"📅 *Date*: {parsed_data['Date']}"
@@ -44,7 +48,7 @@ def handle_message(update, context):
         else:
             reply = "❗Could not parse this transaction. Please review the message format."
         print(reply)
-        update.message.reply_text(reply, parse_mode='Markdown')
+        update.message.reply_text(reply, parse_mode='MarkdownV2')
 
     except Exception as e:
         update.message.reply_text(f"⚠️ Error: {str(e)}")
