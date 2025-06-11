@@ -43,35 +43,42 @@ class UPIParser(BaseParser):
             print(f"Error parsing UPI message: {e}")
             return None
 
+
 class CreditCardParser(BaseParser):
     def parse(self, message):
         try:
-            amount_match = re.search(r'Rs\.?\s?(\d+(?:\.\d{1,2})?) spent on your .*? Credit Card ending (\d+)', message)
-            merchant_match = re.search(r'at (.+?) on', message)
-            date_match = re.search(r'on (\d{2}[-/]\d{2}[-/]\d{2})', message)
+            amount_match = re.search(r'(?:₹|Rs\.?\s?)([\d,]+(?:\.\d{1,2})?)', message)
+            amount = float(amount_match.group(1).replace(',', '')) if amount_match else 0.0
 
-            if not (amount_match and merchant_match and date_match):
-                return None
+            card_match = re.search(r'Credit Card ending (\d{4})', message)
+            card_number = card_match.group(1) if card_match else ''
 
-            amount = float(amount_match.group(1))
-            card_end = amount_match.group(2)
-            merchant = merchant_match.group(1).strip()
-            date = datetime.strptime(date_match.group(1), '%d/%m/%y').strftime('%Y-%m-%d')
-
-            if card_end in ['7752', '7760']:
-                account = 'SBI Credit Card'
+            if card_number in ['7752', '7760']:
+                account = 'SBI credit card'
             else:
-                account = 'HDFC Credit Card'
+                account = 'HDFC credit card'
 
-            if any(name in merchant.lower() for name in ['dmart', 'avenue super mart', 'family fruits and vege']):
+            merchant_match = re.search(r'at (.*?) on', message)
+            merchant = merchant_match.group(1).strip() if merchant_match else 'Unknown'
+
+            # Category determination
+            category = 'Household'
+            subcategory = 'misc'
+
+            merchant_lower = merchant.lower()
+
+            if 'avenue supermarts' in merchant_lower:
                 category = 'Food and other'
                 subcategory = 'Groceries and household items'
-            elif any(name in merchant.lower() for name in ['hotel', 'restaurant', 'ice cream']):
+            elif 'milano ice cream' in merchant_lower:
                 category = 'Food and other'
                 subcategory = 'Eating out'
-            else:
-                category = 'Household'
-                subcategory = 'misc'
+            elif 'family fruits and vege' in merchant_lower:
+                category = 'Food and other'
+                subcategory = 'Groceries and household items'
+
+            date_match = re.search(r'on (\d{2}/\d{2}/\d{2})', message)
+            date = date_match.group(1) if date_match else ''
 
             return {
                 'Date': date,
@@ -84,7 +91,7 @@ class CreditCardParser(BaseParser):
                 'Description': ''
             }
         except Exception as e:
-            print(f"Error parsing Credit Card message: {e}")
+            print(f"Error parsing credit card message: {e}")
             return None
 
 class SalaryParser(BaseParser):
