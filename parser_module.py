@@ -15,7 +15,11 @@ class UPIParser(BaseParser):
             date_match = re.search(r'On (\d{2}[-/]\d{2}[-/]\d{2})', message)
             account_match = re.search(r'A/C \*(\d+)', message)
 
+            print(to_match)
+            print(date_match)
+            print(account_match)
             if not (amount_match and to_match and date_match and account_match):
+                print("skipping upi")
                 return None
 
             amount = float(amount_match.group(1))
@@ -66,14 +70,22 @@ class CreditCardParser(BaseParser):
             merchant_match = re.search(r'at (.*?) on', message)
             merchant = merchant_match.group(1).strip() if merchant_match else 'Unknown'
 
+            date_match = re.search(r'on (\d{2}/\d{2}/\d{2})', message)
+            date = date_match.group(1) if date_match else ''
+            
+            print(amount_match)
+            print(merchant_match)
+            print(date_match)
+
+            if not (amount_match and merchant_match and date_match):
+                print("skipping credi card")
+                return None
+            
             # Category determination
             predictor = CategoryPredictor()
             category, subcategory = predictor.predict(merchant)
             print(f"Predicted Category: {category}, Subcategory: {subcategory}")
-
-            date_match = re.search(r'on (\d{2}/\d{2}/\d{2})', message)
-            date = date_match.group(1) if date_match else ''
-
+            
             return {
                 'Date': date,
                 'Account': account,
