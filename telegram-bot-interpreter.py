@@ -4,7 +4,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from dotenv import load_dotenv
 import os
 
-from parsers import TransactionParser
+from parsers import get_parser
 from excel_writer import ExcelWriter
 from utils import log_transaction
 import re
@@ -20,7 +20,6 @@ if not TELEGRAM_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
 
 # Initialize parser, Excel writer, and log file
-parser = TransactionParser()
 excel_writer = ExcelWriter('data/import.tsv')
 
 
@@ -30,6 +29,7 @@ def start(update, context):
 
 def handle_message(update, context):
     user_message = update.message.text
+    parser = get_parser(user_message)
     try:
         parsed_data = parser.parse(user_message)
         if parsed_data:
