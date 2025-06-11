@@ -4,9 +4,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from dotenv import load_dotenv
 import os
 
-from parser_module import TransactionParser
+from parsers import TransactionParser
 from excel_writer import ExcelWriter
-from logger import log_transaction
+from utils import log_transaction
 import re
 
 # this is to fix the issue Error: Can't parse entities: can't find end of\ the entity starting at byte offset 161
@@ -38,7 +38,7 @@ def handle_message(update, context):
             reply = (
                 f"✅ *Transaction Parsed*\n"
                 f"💰 *Amount*: ₹{escape_markdown(str(parsed_data['Amount']))}\n"
-                f"🏦 *Account*: {parsed_data['Account']}\n"
+                f"🏦 *Account*: {escape_markdown(parsed_data['Account'])}\n"
                 f"📂 *Category*: {escape_markdown(parsed_data['Category'])}\n"
                 f"🗂️ *Subcategory*: {escape_markdown(parsed_data['Subcategory'])}\n"
                 f"📝 *Note*: {parsed_data['Note']}\n"
