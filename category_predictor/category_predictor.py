@@ -34,7 +34,7 @@ class CategoryPredictor:
             return 'Household', 'misc'  # Fallback category
 
 # Example usage for quick test
-if __name__ == '__main__':
-    predictor = CategoryPredictor()
-    category, subcategory = predictor.predict("Avenue super mart")
-    print(f"Predicted Category: {category}, Subcategory: {subcategory}")
+#if __name__ == '__main__':
+#    predictor = CategoryPredictor()
+#    category, subcategory = predictor.predict("Avenue super mart")
+#    print(f"Predicted Category: {category}, Subcategory: {subcategory}")

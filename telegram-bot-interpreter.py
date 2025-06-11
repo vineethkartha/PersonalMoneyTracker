@@ -4,9 +4,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from dotenv import load_dotenv
 import os
 
-from parser_module import TransactionParser
+from parsers import TransactionParser
 from excel_writer import ExcelWriter
-from logger import log_transaction
+from utils import log_transaction
 import re
 
 # this is to fix the issue Error: Can't parse entities: can't find end of\ the entity starting at byte offset 161
