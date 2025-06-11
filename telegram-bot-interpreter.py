@@ -38,7 +38,7 @@ def handle_message(update, context):
             reply = (
                 f"✅ *Transaction Parsed*\n"
                 f"💰 *Amount*: ₹{escape_markdown(str(parsed_data['Amount']))}\n"
-                f"🏦 *Account*: {parsed_data['Account']}\n"
+                f"🏦 *Account*: {escape_markdown(parsed_data['Account'])}\n"
                 f"📂 *Category*: {escape_markdown(parsed_data['Category'])}\n"
                 f"🗂️ *Subcategory*: {escape_markdown(parsed_data['Subcategory'])}\n"
                 f"📝 *Note*: {parsed_data['Note']}\n"
