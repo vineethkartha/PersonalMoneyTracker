@@ -43,7 +43,7 @@ def handle_message(update, context):
             )
         else:
             reply = "❗Could not parse this transaction. Please review the message format."
-
+        print(reply)
         update.message.reply_text(reply, parse_mode='Markdown')
 
     except Exception as e:
