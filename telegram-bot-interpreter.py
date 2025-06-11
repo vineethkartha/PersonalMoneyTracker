@@ -1,68 +1,168 @@
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import re
 from dotenv import load_dotenv
+import pandas as pd
+import fasttext
+import re
 import os
 
+# Load environment variables
 load_dotenv()
-
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TELEGRAM_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
 
+# Load fastText model
+model = fasttext.load_model('models/category_model.ftz')
+
+# Excel file location
+excel_file = 'data/import.xlsx'
+
 def start(update, context):
     update.message.reply_text('Hello! Send me your expense details.')
 
-def parse_transaction(message):
-    # Extract amount (₹ or Rs)
-    amount_match = re.search(r'(?:₹|Rs\.?)\s?(\d+(?:\.\d{1,2})?)', message)
-    amount = float(amount_match.group(1)) if amount_match else None
+def append_to_excel(data):
+    try:
+        df_existing = pd.read_excel(excel_file)
+    except FileNotFoundError:
+        df_existing = pd.DataFrame()
 
-    # Determine if it's credit or debit
-    if re.search(r'\b(received|credited|income|salary|got|deposit)\b', message, re.I):
-        txn_type = 'Credit'
-    elif re.search(r'\b(spent|debited|paid|purchase|bought|used)\b', message, re.I):
-        txn_type = 'Debit'
+    df_new = pd.DataFrame([data])
+    df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    df_combined.to_excel(excel_file, index=False)
+    print("Transaction added successfully!")
+
+def parse_message(message):
+    if 'spent on your SBI Credit Card' in message or 'spent on your HDFC Credit Card' in message:
+        return parse_credit_card_message(message)
+    elif 'Sent Rs.' in message and 'From HDFC Bank A/C' in message:
+        return parse_upi_message(message)
+    elif 'deposited in HDFC Bank A/c' in message:
+        return parse_income_message(message)
     else:
-        txn_type = 'Unknown'
+        return None
 
-    # Try to infer account
-    account_keywords = ['HDFC', 'SBI', 'Cash', 'Wallet', 'Credit Card', 'Savings', 'Axis']
-    account = next((word for word in account_keywords if word.lower() in message.lower()), 'Unknown')
+def parse_credit_card_message(message):
+    amount_match = re.search(r'Rs\.(\d+(\.\d{1,2})?)', message)
+    date_match = re.search(r'on (\d{2}/\d{2}/\d{2})', message)
+    card_end_match = re.search(r'Credit Card ending (\d+)', message)
+    merchant_match = re.search(r'at (.+?) on', message)
 
-    # Very basic category guessing
-    category_keywords = {
-        'food': ['dinner', 'lunch', 'groceries', 'restaurant', 'snacks'],
-        'travel': ['uber', 'flight', 'train', 'bus', 'taxi'],
-        'bills': ['electricity', 'bill', 'recharge', 'mobile'],
-        'shopping': ['amazon', 'flipkart', 'bought', 'purchase'],
-        'entertainment': ['movie', 'netflix', 'hotstar']
-    }
-    category = 'Uncategorized'
-    for cat, keywords in category_keywords.items():
-        if any(kw in message.lower() for kw in keywords):
-            category = cat.capitalize()
-            break
+    if not (amount_match and date_match and card_end_match and merchant_match):
+        return None
+
+    amount = amount_match.group(1)
+    date = date_match.group(1)
+    card_end = card_end_match.group(1)
+    merchant = merchant_match.group(1)
+
+    if card_end in ['7752', '7760']:
+        account = 'SBI creditcard'
+    else:
+        account = 'HDFC creditcard'
+
+    prediction = model.predict(merchant)[0][0]
+    _, category, subcategory = prediction.split('__')
 
     return {
-        'amount': amount,
-        'type': txn_type,
-        'account': account,
-        'category': category
+        'Date': date,
+        'Account': account,
+        'Category': category,
+        'Subcategory': subcategory,
+        'Note': merchant,
+        'Amount': amount,
+        'Income/Expense': 'Expense',
+        'Description': ''
+    }
+
+def parse_upi_message(message):
+    amount_match = re.search(r'Sent Rs\.(\d+(\.\d{1,2})?)', message)
+    date_match = re.search(r'On (\d{2}/\d{2}/\d{2})', message)
+    account_end_match = re.search(r'A/C \*(\d+)', message)
+    to_match = re.search(r'To (.+?)\n', message)
+
+    if not (amount_match and date_match and account_end_match and to_match):
+        return None
+
+    amount = amount_match.group(1)
+    date = date_match.group(1)
+    account_end = account_end_match.group(1)
+    to = to_match.group(1)
+
+    if account_end == '5000':
+        account = '(p)HDFC'
+    elif account_end == '4765':
+        account = '(v)HDFC'
+    else:
+        account = 'Unknown'
+
+    prediction = model.predict(to)[0][0]
+    _, category, subcategory = prediction.split('__')
+
+    return {
+        'Date': date,
+        'Account': account,
+        'Category': category,
+        'Subcategory': subcategory,
+        'Note': to,
+        'Amount': amount,
+        'Income/Expense': 'Expense',
+        'Description': ''
+    }
+
+def parse_income_message(message):
+    amount_match = re.search(r'INR\s([\d,]+\.\d{2})', message)
+    date_match = re.search(r'on (\d{2}-[A-Z]{3}-\d{2})', message)
+    account_end_match = re.search(r'A/c XX(\d+)', message)
+    payer_match = re.search(r'Cr-[^-]+-(.+?)-', message)
+
+    if not (amount_match and date_match and account_end_match):
+        return None
+
+    # Clean amount (remove commas)
+    amount = amount_match.group(1).replace(',', '')
+    date = date_match.group(1).replace('-', '/')
+    account_end = account_end_match.group(1)
+
+    if account_end == '5000':
+        account = '(p)HDFC'
+    elif account_end == '4765':
+        account = '(v)HDFC'
+    else:
+        account = 'Unknown'
+
+    payer = payer_match.group(1).strip() if payer_match else 'Unknown Source'
+
+    return {
+        'Date': date,
+        'Account': account,
+        'Category': 'Salary',
+        'Subcategory': '',
+        'Note': payer,
+        'Amount': amount,
+        'Income/Expense': 'Income',
+        'Description': ''
     }
 
 def handle_message(update, context):
     user_message = update.message.text
-    result = parse_transaction(user_message)
+    result = parse_message(user_message)
 
-    reply = (
-        f"💰 *Amount*: ₹{result['amount']}\n"
-        f"📥 *Type*: {result['type']}\n"
-        f"🏦 *Account*: {result['account']}\n"
-        f"📂 *Category*: {result['category']}"
-    )
+    if result:
+        append_to_excel(result)
 
-    update.message.reply_text(reply, parse_mode='Markdown')
+        reply = (
+            f"💰 *Amount*: ₹{result['Amount']}\n"
+            f"📅 *Date*: {result['Date']}\n"
+            f"🏦 *Account*: {result['Account']}\n"
+            f"📂 *Category*: {result['Category']}\n"
+            f"🔖 *Subcategory*: {result['Subcategory']}\n"
+            f"📝 *Note*: {result['Note']}\n"
+            f"💼 *Type*: {result['Income/Expense']}"
+        )
 
+        update.message.reply_text(reply, parse_mode='Markdown')
+    else:
+        update.message.reply_text("❗ I couldn't parse this message. Please check the format.")
 
 def main():
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
