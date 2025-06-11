@@ -25,16 +25,16 @@ class CategoryPredictor:
             # Assume labels are formatted as Category__Subcategory
             parts = label.split('__', 1)
             if len(parts) == 2:
-                return parts[0], parts[1]
+                return parts[0].replace("_"," "), parts[1].replace("_"," ")
             else:
-                return parts[0], ''  # If subcategory is not provided
+                return parts[0].replace("_"," "), ''  # If subcategory is not provided
 
         except Exception as e:
             print(f"Error predicting category: {e}")
             return 'Household', 'misc'  # Fallback category
 
 # Example usage for quick test
-#if __name__ == '__main__':
-#    predictor = CategoryPredictor()
-#    category, subcategory = predictor.predict("Avenue super mart")
-#    print(f"Predicted Category: {category}, Subcategory: {subcategory}")
+if __name__ == '__main__':
+    predictor = CategoryPredictor()
+    category, subcategory = predictor.predict("Avenue super mart")
+    print(f"Predicted Category: {category}, Subcategory: {subcategory}")
