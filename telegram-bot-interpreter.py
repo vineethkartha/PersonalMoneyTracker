@@ -45,7 +45,7 @@ def handle_message(update, context):
         parsed_data = parser.parse(user_message)
         if parsed_data:
             excel_writer.write_transaction(parsed_data)
-            log_transaction(user_id, user_name user_message, str(parsed_data))
+            log_transaction(user_id, user_name, user_message, str(parsed_data))
             reply = (
                 f"✅ *Transaction Parsed*\n"
                 f"💰 *Amount*: ₹{cleanMarkdown(str(parsed_data['Amount']))}\n"
@@ -63,7 +63,7 @@ def handle_message(update, context):
 
     except Exception as e:
         update.message.reply_text(f"⚠️ Error: {str(e)}")
-        log_transaction(user_message, f"Error: {str(e)}")
+        log_transaction(user_id, user_name,user_message, f"Error: {str(e)}")
 
 
 def main():
