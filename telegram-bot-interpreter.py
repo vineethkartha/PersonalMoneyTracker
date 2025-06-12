@@ -33,7 +33,7 @@ def start(update, context):
 
 def handle_message(update, context):
     user_id = update.message.from_user.id
-    user_name = update.message.from_user.username
+    user_name = update.message.from_user.first_name
     
     if user_id not in ALLOWED_USERS:
         update.message.reply_text("🚫 Access denied. You are not authorized to use this bot.")
