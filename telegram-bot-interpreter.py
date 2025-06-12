@@ -1,13 +1,17 @@
 # telegram_bot_interpreter.py
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import ChatAction
 from dotenv import load_dotenv
 import os
 
 from parsers import get_parser
 from excel_writer import ExcelWriter
-from utils import log_transaction
+from utils import log_transaction, archive_and_reset_file
 import re
+
+# GLOBAL CONSTANTS
+DATA_FILE = 'data/import.tsv'
 
 # this is to fix the issue Error: Can't parse entities: can't find end of\ the entity starting at byte offset 161
 def cleanMarkdown(text):
@@ -24,11 +28,39 @@ allowed_user_ids_str = os.getenv("ALLOWED_USER_IDS", "")
 ALLOWED_USERS = set(map(int, allowed_user_ids_str.split(",")))if allowed_user_ids_str else set()
 
 # Initialize parser, Excel writer, and log file
-excel_writer = ExcelWriter('data/import.tsv')
+excel_writer = ExcelWriter(DATA_FILE)
 
 
 def start(update, context):
     update.message.reply_text('Hello! Send me your expense details.')
+
+def send_file(update, context):
+    user_id = update.effective_user.id
+    user_name = update.message.from_user.first_name
+    if user_id not in ALLOWED_USERS:
+        update.message.reply_text("❌ You are not authorized to request this file.")
+        return
+
+    archived_file = archive_and_reset_file(DATA_FILE)
+    file_sent_status = ''
+    if archived_file:
+        try:
+            # Indicate file is being uploaded
+            context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_DOCUMENT)
+
+            # Send the archived file
+            context.bot.send_document(chat_id=update.effective_chat.id, document=open(archived_file, 'rb'))
+            update.message.reply_text("✅ File sent and reset completed.")
+            file_sent_status = archived_file + ' sent'
+        except Exception as e:
+            update.message.reply_text(f"⚠️ Error sending file: {str(e)}")
+            file_sent_status = str(e)
+    else:
+        file_sent_status = "No transactions to report."
+        update.message.reply_text(file_sent_status)
+    print(file_sent_status)
+    log_transaction(user_id, user_name, 'File Requested', file_sent_status)
+
 
 
 def handle_message(update, context):
@@ -58,7 +90,7 @@ def handle_message(update, context):
             )
         else:
             reply = "❗Could not parse this transaction. Please review the message format."
-        print(reply)
+        print(reply.split('\n')[0])
         update.message.reply_text(reply, parse_mode='MarkdownV2')
 
     except Exception as e:
@@ -68,11 +100,13 @@ def handle_message(update, context):
 
 def main():
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
-
+    
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
+    # This is to receive the import.tsv file
+    dp.add_handler(CommandHandler('sendfile', send_file))
+    
     print("Bot is running...")
     updater.start_polling()
     updater.idle()
