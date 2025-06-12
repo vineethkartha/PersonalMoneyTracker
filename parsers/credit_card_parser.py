@@ -24,9 +24,9 @@ class CreditCardParser(BaseParser):
 
             card_number = card_match.group(1) if card_match else ''
             if card_number in ['7752', '7760']:
-                account = 'SBI credit card'
+                account = 'SBI creditcard'
             else:
-                account = 'HDFC credit card'
+                account = 'HDFC creditcard'
 
             # Category determination
             predictor = CategoryPredictor()
