@@ -234,12 +234,49 @@ def button_handler(update, context):
         else:
             query.edit_message_text(text="⚠️ No transaction to save.")
 
+
+def summary_handle(update, context):
+    user_id = update.effective_user.id
+    user_name = update.message.from_user.first_name
+
+    if user_id not in ALLOWED_USERS:
+        update.message.reply_text("❌ You are not authorized to request this file.")
+        return
+
+    data = excel_writer.read_transactions()
+    messages = []
+    if len(data) == 0:
+        update.message.reply_text("No transactions recorded.\n")
+        return
+    
+    for transaction in data:
+        messages.append(
+            f"Amount: ₹{cleanMarkdown(str(transaction['Amount']))}\n"
+            f"Account: {cleanMarkdown(transaction['Account'])}\n"
+            f"Category: {cleanMarkdown(transaction['Category'])}\n"
+            f"Subcategory: {cleanMarkdown(transaction['Subcategory'])}\n"
+            f"Note: {cleanMarkdown(transaction['Note'])}\n"
+            f"Date: {cleanMarkdown(transaction['Date'])}\n\n"
+        )
+
+    full_message = '\n'.join(messages)
+
+    print(full_message)
+
+    # Telegram messages have a 4096 character limit, split if needed
+    if len(full_message) > 4096:
+        for i in range(0, len(full_message), 4096):
+            update.message.reply_text(full_message[i:i+4096], parse_mode='MarkdownV2')
+    else:
+        update.message.reply_text(full_message, parse_mode='MarkdownV2')
+
 def main():
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CommandHandler('sendfile', send_file))
+    dp.add_handler(CommandHandler('summary', summary_handle))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dp.add_handler(CallbackQueryHandler(button_handler))
 
