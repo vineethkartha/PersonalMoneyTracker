@@ -1,100 +1,40 @@
-# telegram_bot_interpreter.py
+# bot/handlers.py
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-from telegram import ChatAction, InlineKeyboardButton, InlineKeyboardMarkup
-from dotenv import load_dotenv
-import os
-import re
+"""
+Telegram Bot Command and Message Handlers.
 
-from parsers import get_parser
+This module contains the handlers for start, file sending, message parsing,
+transaction confirmation, category editing, and transaction summaries.
+
+Handlers:
+- start: Welcomes the user.
+- send_file: Archives and sends the transaction file to authorized users.
+- handle_message: Parses incoming transactions and prompts for confirmation.
+- button_handler: Handles confirmation and editing of parsed transactions.
+- summary_handle: Sends a summary of all recorded transactions.
+"""
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
+
+from bot.auth import ALLOWED_USERS
+from bot.categories import CATEGORIES
+from bot.notifications import notify_other_users
+from utils import cleanMarkdown, log_transaction, archive_and_reset_file
+
 from excel_writer import ExcelWriter
-from utils import log_transaction, archive_and_reset_file
+from parsers import get_parser
 
-# ======================
-# GLOBAL CONSTANTS
-# ======================
+# Excel data file
 DATA_FILE = 'data/import.tsv'
-
-# Categories and Subcategories (Expandable)
-CATEGORIES = {
-    "Education": [
-        "Bhadra's School",
-        "Vasu's school",
-        "Academy",
-        "co curricular",
-        "Textbooks",
-        "School supplies"
-    ],
-    "Entertainment": [
-        "Misc",
-        "Aquarium",
-        "Photography",
-        "Movie",
-        "Books"
-    ],
-    "Food and others": [
-        "Eating out",
-        "Groceries and household items",
-        "cook"
-    ],
-    "Health": [
-        "Medicine",
-        "Personal care",
-        "Hospital",
-        "Insurance"
-    ],
-    "Household": [
-        "EMI",
-        "Misc",
-        "Maintainance",
-        "Phone and Internet",
-        "Bills"
-    ],
-    "Other expenses": [
-        "Real estate investments",
-        "Taxes",
-        "PSR",
-        "PoARR"
-    ],
-    "Tour": [
-        "Travel",
-        "Misc",
-        "Accommodation",
-        "Food"
-    ],
-    "Vehicle": [
-        "Fuel",
-        "Maintainance"
-    ],
-    "parents & extended family":[""],
-    "Gift":[""],
-    "shopping":[""]    
-}
-
-# ======================
-# Setup
-# ======================
-def cleanMarkdown(text):
-    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
-
-load_dotenv()
-
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if not TELEGRAM_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
-
-allowed_user_ids_str = os.getenv("ALLOWED_USER_IDS", "")
-ALLOWED_USERS = set(map(int, allowed_user_ids_str.split(","))) if allowed_user_ids_str else set()
-
 excel_writer = ExcelWriter(DATA_FILE)
 
-# ======================
-# Telegram Handlers
-# ======================
 def start(update, context):
+    """Send a welcome message to the user."""
     update.message.reply_text('Hello! Send me your expense details.')
 
 def send_file(update, context):
+    """Send the archived transaction file to the user if authorized."""
     user_id = update.effective_user.id
     user_name = update.message.from_user.first_name
 
@@ -104,6 +44,7 @@ def send_file(update, context):
 
     archived_file = archive_and_reset_file(DATA_FILE)
     file_sent_status = ''
+
     if archived_file:
         try:
             context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_DOCUMENT)
@@ -121,6 +62,7 @@ def send_file(update, context):
     log_transaction(user_id, user_name, 'File Requested', file_sent_status)
 
 def handle_message(update, context):
+    """Parse and process incoming messages as transaction data."""
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
@@ -162,42 +104,17 @@ def handle_message(update, context):
         update.message.reply_text(f"⚠️ Error: {str(e)}")
         log_transaction(user_id, user_name, user_message, f"Error: {str(e)}")
 
-def notify_other_users(context, submitting_user_id, transaction):
-    try:
-        submitter = context.bot.get_chat(submitting_user_id)
-        submitter_name = submitter.first_name
-    except Exception:
-        submitter_name = "Someone"
-    message = (
-        f"🔔 *New Transaction Added by *{cleanMarkdown(submitter_name)}\n"
-        f"💰 *Amount*: ₹{cleanMarkdown(str(transaction['Amount']))}\n"
-        f"🏦 *Account*: {cleanMarkdown(transaction['Account'])}\n"
-        f"📂 *Category*: {cleanMarkdown(transaction['Category'])}\n"
-        f"🗂️ *Subcategory*: {cleanMarkdown(transaction['Subcategory'])}\n"
-        f"📝 *Note*: {cleanMarkdown(transaction['Note'])}\n"
-        f"💵 *Type*: {transaction['Income/Expense']}\n"
-        f"📅 *Date*: {transaction['Date']}"
-    )
-
-    for user_id in ALLOWED_USERS:
-        if user_id != submitting_user_id:  # Don't notify the submitting user
-            try:
-                context.bot.send_message(chat_id=user_id, text=message, parse_mode='MarkdownV2')
-            except Exception as e:
-                print(f"Failed to send notification to {user_id}: {str(e)}")
-
-                
 def button_handler(update, context):
+    """Handle inline keyboard button interactions for confirmation and editing."""
     query = update.callback_query
     query.answer()
-    user_id = query.from_user.id  # ID of the user who confirmed
-    
+    user_id = query.from_user.id
+
     if query.data == 'confirm':
         transaction = context.user_data.get('transaction')
         if transaction:
             excel_writer.write_transaction(transaction)
             query.edit_message_text(text="✅ Transaction saved.")
-            # Notify other users
             notify_other_users(context, user_id, transaction)
         else:
             query.edit_message_text(text="⚠️ No transaction to save.")
@@ -228,27 +145,27 @@ def button_handler(update, context):
             query.edit_message_text(
                 text=f"✅ Transaction saved with updated category: *{cleanMarkdown(transaction['Category'])}* and subcategory: *{cleanMarkdown(transaction['Subcategory'])}*",
                 parse_mode='MarkdownV2')
-            # Notify other users
             notify_other_users(context, user_id, transaction)
-
         else:
             query.edit_message_text(text="⚠️ No transaction to save.")
 
-
 def summary_handle(update, context):
+    """Send a summary of all recorded transactions to the user."""
     user_id = update.effective_user.id
     user_name = update.message.from_user.first_name
-
+    
+    print(ALLOWED_USERS)
     if user_id not in ALLOWED_USERS:
         update.message.reply_text("❌ You are not authorized to request this file.")
         return
 
     data = excel_writer.read_transactions()
     messages = []
+
     if len(data) == 0:
         update.message.reply_text("No transactions recorded.\n")
         return
-    
+
     for transaction in data:
         messages.append(
             f"Amount: ₹{cleanMarkdown(str(transaction['Amount']))}\n"
@@ -266,23 +183,6 @@ def summary_handle(update, context):
     # Telegram messages have a 4096 character limit, split if needed
     if len(full_message) > 4096:
         for i in range(0, len(full_message), 4096):
-            update.message.reply_text(full_message[i:i+4096], parse_mode='MarkdownV2')
+            update.message.reply_text(full_message[i:i + 4096], parse_mode='MarkdownV2')
     else:
         update.message.reply_text(full_message, parse_mode='MarkdownV2')
-
-def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler('start', start))
-    dp.add_handler(CommandHandler('sendfile', send_file))
-    dp.add_handler(CommandHandler('summary', summary_handle))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    dp.add_handler(CallbackQueryHandler(button_handler))
-
-    print("Bot is running...")
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
