@@ -26,3 +26,15 @@ class ExcelWriter:
             print(transaction)
         except Exception as e:
             print(f"Error writing to file: {e}")
+
+    def read_transactions(self):
+        try:
+            data = []
+            existing_data = pd.read_csv(self.filename, sep='\t')
+            for index in range(0,len(existing_data)):
+                row_data = existing_data.iloc[index].to_dict()
+                data.append(row_data)
+        except Exception as e:
+            print(f"Error reading from file: {e}")
+            
+        return data
