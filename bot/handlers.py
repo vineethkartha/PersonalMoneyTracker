@@ -129,11 +129,21 @@ def button_handler(update, context):
         context.user_data['transaction']['Category'] = selected_category
 
         subcategories = CATEGORIES[selected_category]
-        keyboard = [[InlineKeyboardButton(sub, callback_data=f"sub_{sub}")] for sub in subcategories]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(
-            text=f"Category set to *{cleanMarkdown(selected_category)}*\nNow select a subcategory:",
-            reply_markup=reply_markup, parse_mode='MarkdownV2')
+        print(subcategories)
+        if subcategories != ['']:  # If subcategories exist, show buttons
+            keyboard = [[InlineKeyboardButton(sub, callback_data=f"sub_{sub}")] for sub in subcategories]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            query.edit_message_text(
+                text=f"Category set to *{cleanMarkdown(selected_category)}*\nNow select a subcategory:",
+                reply_markup=reply_markup, parse_mode='MarkdownV2')
+        else:  # No subcategories, save transaction immediately
+            context.user_data['transaction']['Subcategory'] = ""
+            transaction = context.user_data.get('transaction')
+            excel_writer.write_transaction(transaction)
+            query.edit_message_text(
+                text=f"✅ Transaction saved with category: *{cleanMarkdown(selected_category)}*",
+                parse_mode='MarkdownV2')
+            notify_other_users(context, user_id, transaction)
 
     elif query.data.startswith('sub_'):
         selected_subcategory = query.data.replace('sub_', '')
