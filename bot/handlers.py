@@ -93,6 +93,7 @@ def handle_message(update, context):
             keyboard = [
                 [InlineKeyboardButton("✅ Confirm", callback_data='confirm')],
                 [InlineKeyboardButton("✏️ Edit", callback_data='edit')]
+                [InlineKeyboardButton("🚫 Cancel", callback_data='cancel')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text(reply, reply_markup=reply_markup, parse_mode='MarkdownV2')
@@ -123,6 +124,16 @@ def button_handler(update, context):
         keyboard = [[InlineKeyboardButton(cat, callback_data=f"cat_{cat}")] for cat in CATEGORIES.keys()]
         reply_markup = InlineKeyboardMarkup(keyboard)
         query.edit_message_text(text="Select a new category:", reply_markup=reply_markup)
+
+    elif query.data == 'cancel':
+        # Clear the pending transaction
+        context.user_data.pop('transaction', None)
+        try:
+            query.edit_message_text("❌ Transaction cancelled.")
+        except:
+            query.message.reply_text("❌ Transaction cancelled.")
+
+        return
 
     elif query.data.startswith('cat_'):
         selected_category = query.data.replace('cat_', '')
