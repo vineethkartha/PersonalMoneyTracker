@@ -3,7 +3,7 @@
 import re
 from .base_parser import BaseParser
 from datetime import datetime
-from category_predictor import CategoryPredictor
+from category_predictor import get_predictor
 
 class UPIParser(BaseParser):
     def parse(self, message):
@@ -30,7 +30,9 @@ class UPIParser(BaseParser):
             else:
                 account = 'Unknown'
 
-            predictor = CategoryPredictor()
+            predictor = get_predictor()
+            #category = "Household"
+            #subcategory = "misc"
             category, subcategory = predictor.predict(to)
             print(f"Predicted Category: {category}, Subcategory: {subcategory}")
 

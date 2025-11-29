@@ -3,7 +3,7 @@
 import re
 from .base_parser import BaseParser
 from datetime import datetime
-from category_predictor import CategoryPredictor
+from category_predictor import get_predictor
 
 class CreditCardParser(BaseParser):
     def parse(self, message):
@@ -29,7 +29,7 @@ class CreditCardParser(BaseParser):
                 account = 'HDFC creditcard'
 
             # Category determination
-            predictor = CategoryPredictor()
+            predictor = get_predictor()
             category, subcategory = predictor.predict(merchant)
             print(f"Predicted Category: {category}, Subcategory: {subcategory}")
             
