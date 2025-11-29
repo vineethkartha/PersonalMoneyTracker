@@ -92,7 +92,7 @@ def handle_message(update, context):
 
             keyboard = [
                 [InlineKeyboardButton("✅ Confirm", callback_data='confirm')],
-                [InlineKeyboardButton("✏️ Edit", callback_data='edit')]
+                [InlineKeyboardButton("✏️ Edit", callback_data='edit')],
                 [InlineKeyboardButton("🚫 Cancel", callback_data='cancel')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -132,7 +132,7 @@ def button_handler(update, context):
             query.edit_message_text("❌ Transaction cancelled.")
         except:
             query.message.reply_text("❌ Transaction cancelled.")
-
+    
         return
 
     elif query.data.startswith('cat_'):
