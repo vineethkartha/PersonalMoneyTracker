@@ -4,7 +4,7 @@ load_dotenv()
 
 import os
 from bot.handlers import start, send_file, handle_message, button_handler, summary_handle
-
+from category_predictor import get_predictor
 
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -20,6 +20,8 @@ def main():
     dp.add_handler(CallbackQueryHandler(button_handler))
 
     print("Bot is running...")
+    predictor = get_predictor()
+    print("Category Predictor loaded")
     updater.start_polling()
     updater.idle()
 
