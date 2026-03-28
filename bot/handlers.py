@@ -1,21 +1,11 @@
 # bot/handlers.py
 
 """
-Telegram Bot Command and Message Handlers.
-
-This module contains the handlers for start, file sending, message parsing,
-transaction confirmation, category editing, and transaction summaries.
-
-Handlers:
-- start: Welcomes the user.
-- send_file: Archives and sends the transaction file to authorized users.
-- handle_message: Parses incoming transactions and prompts for confirmation.
-- button_handler: Handles confirmation and editing of parsed transactions.
-- summary_handle: Sends a summary of all recorded transactions.
+Telegram Bot Command and Message Handlers (Updated for v20+).
 """
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ChatAction
+from telegram.ext import ContextTypes
 
 from bot.auth import ALLOWED_USERS
 from bot.categories import CATEGORIES
@@ -29,17 +19,17 @@ from parsers import get_parser
 DATA_FILE = 'data/import.tsv'
 excel_writer = ExcelWriter(DATA_FILE)
 
-def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message to the user."""
-    update.message.reply_text('Hello! Send me your expense details.')
+    await update.message.reply_text('Hello! Send me your expense details.')
 
-def send_file(update, context):
+async def send_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send the archived transaction file to the user if authorized."""
     user_id = update.effective_user.id
     user_name = update.message.from_user.first_name
 
     if user_id not in ALLOWED_USERS:
-        update.message.reply_text("❌ You are not authorized to request this file.")
+        await update.message.reply_text("❌ You are not authorized to request this file.")
         return
 
     archived_file = archive_and_reset_file(DATA_FILE)
@@ -47,27 +37,28 @@ def send_file(update, context):
 
     if archived_file:
         try:
-            context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_DOCUMENT)
-            context.bot.send_document(chat_id=update.effective_chat.id, document=open(archived_file, 'rb'))
-            update.message.reply_text("✅ File sent and reset completed.")
+            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_DOCUMENT)
+            with open(archived_file, 'rb') as doc:
+                await context.bot.send_document(chat_id=update.effective_chat.id, document=doc)
+            await update.message.reply_text("✅ File sent and reset completed.")
             file_sent_status = archived_file + ' sent'
         except Exception as e:
-            update.message.reply_text(f"⚠️ Error sending file: {str(e)}")
+            await update.message.reply_text(f"⚠️ Error sending file: {str(e)}")
             file_sent_status = str(e)
     else:
         file_sent_status = "No transactions to report."
-        update.message.reply_text(file_sent_status)
+        await update.message.reply_text(file_sent_status)
 
     print(file_sent_status)
     log_transaction(user_id, user_name, 'File Requested', file_sent_status)
 
-def handle_message(update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Parse and process incoming messages as transaction data."""
     user_id = update.message.from_user.id
     user_name = update.message.from_user.first_name
 
     if user_id not in ALLOWED_USERS:
-        update.message.reply_text("🚫 Access denied. You are not authorized to use this bot.")
+        await update.message.reply_text("🚫 Access denied. You are not authorized to use this bot.")
         return
 
     user_message = update.message.text
@@ -96,114 +87,91 @@ def handle_message(update, context):
                 [InlineKeyboardButton("🚫 Cancel", callback_data='cancel')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            update.message.reply_text(reply, reply_markup=reply_markup, parse_mode='MarkdownV2')
-
+            await update.message.reply_text(reply, reply_markup=reply_markup, parse_mode='MarkdownV2')
         else:
-            update.message.reply_text("❗Could not parse this transaction. Please review the message format.")
-
+            await update.message.reply_text("❗Could not parse this transaction. Please review the message format.")
     except Exception as e:
-        update.message.reply_text(f"⚠️ Error: {str(e)}")
+        await update.message.reply_text(f"⚠️ Error: {str(e)}")
         log_transaction(user_id, user_name, user_message, f"Error: {str(e)}")
 
-def button_handler(update, context):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle inline keyboard button interactions for confirmation and editing."""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     user_id = query.from_user.id
 
     if query.data == 'confirm':
         transaction = context.user_data.get('transaction')
         if transaction:
             excel_writer.write_transaction(transaction)
-            query.edit_message_text(text="✅ Transaction saved.")
-            notify_other_users(context, user_id, transaction)
+            await query.edit_message_text(text="✅ Transaction saved.")
+            await notify_other_users(context, user_id, transaction)
         else:
-            query.edit_message_text(text="⚠️ No transaction to save.")
+            await query.edit_message_text(text="⚠️ No transaction to save.")
 
     elif query.data == 'edit':
         keyboard = [[InlineKeyboardButton(cat, callback_data=f"cat_{cat}")] for cat in CATEGORIES.keys()]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(text="Select a new category:", reply_markup=reply_markup)
+        await query.edit_message_text(text="Select a new category:", reply_markup=reply_markup)
 
     elif query.data == 'cancel':
-        # Clear the pending transaction
         context.user_data.pop('transaction', None)
         try:
-            query.edit_message_text("❌ Transaction cancelled.")
+            await query.edit_message_text("❌ Transaction cancelled.")
         except:
-            query.message.reply_text("❌ Transaction cancelled.")
-    
+            await query.message.reply_text("❌ Transaction cancelled.")
         return
 
     elif query.data.startswith('cat_'):
         selected_category = query.data.replace('cat_', '')
         context.user_data['transaction']['Category'] = selected_category
-
         subcategories = CATEGORIES[selected_category]
-        print(subcategories)
-        if subcategories != ['']:  # If subcategories exist, show buttons
+
+        if subcategories != ['']:
             keyboard = [[InlineKeyboardButton(sub, callback_data=f"sub_{sub}")] for sub in subcategories]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            query.edit_message_text(
+            await query.edit_message_text(
                 text=f"Category set to *{cleanMarkdown(selected_category)}*\nNow select a subcategory:",
                 reply_markup=reply_markup, parse_mode='MarkdownV2')
-        else:  # No subcategories, save transaction immediately
+        else:
             context.user_data['transaction']['Subcategory'] = ""
             transaction = context.user_data.get('transaction')
             excel_writer.write_transaction(transaction)
-            query.edit_message_text(
+            await query.edit_message_text(
                 text=f"✅ Transaction saved with category: *{cleanMarkdown(selected_category)}*",
                 parse_mode='MarkdownV2')
-            notify_other_users(context, user_id, transaction)
+            await notify_other_users(context, user_id, transaction)
 
     elif query.data.startswith('sub_'):
         selected_subcategory = query.data.replace('sub_', '')
         context.user_data['transaction']['Subcategory'] = selected_subcategory
-
         transaction = context.user_data.get('transaction')
         if transaction:
             excel_writer.write_transaction(transaction)
-            query.edit_message_text(
+            await query.edit_message_text(
                 text=f"✅ Transaction saved with updated category: *{cleanMarkdown(transaction['Category'])}* and subcategory: *{cleanMarkdown(transaction['Subcategory'])}*",
                 parse_mode='MarkdownV2')
-            notify_other_users(context, user_id, transaction)
+            await notify_other_users(context, user_id, transaction)
         else:
-            query.edit_message_text(text="⚠️ No transaction to save.")
+            await query.edit_message_text(text="⚠️ No transaction to save.")
 
-def summary_handle(update, context):
+async def summary_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a summary of all recorded transactions to the user."""
     user_id = update.effective_user.id
-    user_name = update.message.from_user.first_name
-    
-    print(ALLOWED_USERS)
     if user_id not in ALLOWED_USERS:
-        update.message.reply_text("❌ You are not authorized to request this file.")
+        await update.message.reply_text("❌ You are not authorized to request this file.")
         return
 
     data = excel_writer.read_transactions()
-    messages = []
-
-    if len(data) == 0:
-        update.message.reply_text("No transactions recorded.\n")
+    if not data:
+        await update.message.reply_text("No transactions recorded.\n")
         return
 
+    summary_text = "📊 *Transaction Summary:*\n\n"
     for transaction in data:
-        messages.append(
-            f"Amount: ₹{cleanMarkdown(str(transaction['Amount']))}\n"
-            f"Account: {cleanMarkdown(transaction['Account'])}\n"
-            f"Category: {cleanMarkdown(transaction['Category'])}\n"
-            f"Subcategory: {cleanMarkdown(transaction['Subcategory'])}\n"
-            f"Note: {cleanMarkdown(transaction['Note'])}\n"
-            f"Date: {cleanMarkdown(transaction['Date'])}\n\n"
+        summary_text += (
+            f"💰 ₹{cleanMarkdown(str(transaction['Amount']))} | "
+            f"📂 {cleanMarkdown(transaction['Category'])}\n"
         )
-
-    full_message = '\n'.join(messages)
-
-    print(full_message)
-
-    # Telegram messages have a 4096 character limit, split if needed
-    if len(full_message) > 4096:
-        for i in range(0, len(full_message), 4096):
-            update.message.reply_text(full_message[i:i + 4096], parse_mode='MarkdownV2')
-    else:
-        update.message.reply_text(full_message, parse_mode='MarkdownV2')
+    
+    await update.message.reply_text(summary_text, parse_mode='MarkdownV2')
