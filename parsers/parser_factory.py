@@ -10,7 +10,7 @@ def get_parser(message):
     """
     if "UPI" in message or "From HDFC Bank A/C" in message:
         return UPIParser()
-    elif "Credit Card ending" in message:
+    elif "Card" in message:
         return CreditCardParser()
     elif "deposited in HDFC Bank A/c" in message:
         return SalaryParser()

@@ -7,18 +7,18 @@ MODEL_PATH = 'models/category_model.ftz'
 
 class CategoryPredictor:
     def __init__(self):
-        if not os.path.exists(MODEL_PATH):
-            raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+        #if not os.path.exists(MODEL_PATH):
+            #raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
         try:
             print("model loading")
-            self.model = fasttext.load_model(MODEL_PATH)
+            #self.model = fasttext.load_model(MODEL_PATH)
             print("model loaded")
         except Exception as e:
             raise RuntimeError(f"Failed to load fasttext model: {e}")
 
     def predict(self, merchant_name):
         try:
-            #return "Household","misc"
+            return "Food and others","Groceries and household items"
             print("Start predicting")
             prediction = self.model.predict(merchant_name)
             print("End predicting")

@@ -19,7 +19,7 @@ def main():
     dp.add_handler(CallbackQueryHandler(button_handler))
 
     print("Bot is running...")
-    predictor = get_predictor()
+    #predictor = get_predictor()
     print("Category Predictor loaded")
     dp.run_polling()
 
