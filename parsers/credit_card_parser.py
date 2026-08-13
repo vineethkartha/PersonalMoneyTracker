@@ -47,7 +47,7 @@ class CreditCardParser(BaseParser):
             if 'SBI' in message.upper():
                 account = 'SBI creditcard'
             elif 'HDFC' in message.upper():
-                account = f'HDFC creditcard ({card_number})' if card_number else 'HDFC creditcard'
+                account = 'HDFC creditcard'
             else:
                 account = f'Other creditcard ({card_number})'.strip()
 
